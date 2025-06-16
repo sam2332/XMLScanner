@@ -133,14 +133,14 @@ class ScanProgressWindow(QWidget):
         scrollbar = self.log_text.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
         
-    def file_found(self, filename, occurrence_count):
+    def file_found(self, filename, occurrence_count, matches):
         """Handle file found event"""
         self.files_found_count += 1
         self.stats_label.setText(f"Files found: {self.files_found_count}")
         
         timestamp = datetime.now().strftime('%H:%M:%S')
         basename = os.path.basename(filename)
-        self.log_text.append(f"[{timestamp}] ✓ Found match: {basename} ({occurrence_count} occurrences)")
+        self.log_text.append(f"[{timestamp}] ✓ Found match: {basename} ({occurrence_count} occurrences) - [{', '.join(matches)}]")
         
         # Auto-scroll to bottom
         scrollbar = self.log_text.verticalScrollBar()

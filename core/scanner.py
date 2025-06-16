@@ -164,7 +164,7 @@ class ScanWorker(QThread):
                                 matched_terms.append(term.decode('utf-8'))
                     if occurrences > 0:
                         found_files.append((filename, occurrences, matched_terms))
-                        self.file_found.emit(filename, occurrences)
+                        self.file_found.emit(filename, occurrences, matched_terms)
                 except Exception as e:
                     self.status_updated.emit(f"Error processing {filename}: {e}")
                 processed += 1
@@ -201,7 +201,7 @@ class ScanWorker(QThread):
                         if result:
                             for dll_path, decomp_file, occ, matched_terms in result:
                                 found_files.append((dll_path, decomp_file, occ, matched_terms))
-                                self.file_found.emit(decomp_file, occ)
+                                self.file_found.emit(decomp_file, occ, matched_terms)
                     except Exception as e:
                         self.status_updated.emit(f"Error processing {filename}: {e}")
                     processed += 1

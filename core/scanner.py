@@ -12,6 +12,8 @@ import subprocess
 import re
 from typing import List, Dict
 from libs.util import shorten_path,get_cpu_count
+from libs.Settings import Settings
+
 def decompile_assembly(dll_path: str, output_dir: str) -> str:
     
 
@@ -49,7 +51,7 @@ scanned_dll_hashes = set()
 class ScanWorker(QThread):
     progress_updated = pyqtSignal(int)
     status_updated = pyqtSignal(str)
-    file_found = pyqtSignal(str, int)
+    file_found = pyqtSignal(str, int, list)  # filename, occurrence_count, matched_terms
     scan_completed = pyqtSignal(list)
     total_files_found = pyqtSignal(int)
     files_counted = pyqtSignal(int, int)  # xml_count, dll_count
@@ -62,8 +64,16 @@ class ScanWorker(QThread):
         self.scan_xmls = scan_xmls
         self.cache_dir = cache_dir
         os.makedirs(self.cache_dir, exist_ok=True)
+        # Load DLL whitelist from settings
+        self.settings = Settings()
+        self.dll_whitelist = set([x.strip().lower() for x in self.settings.get('dll_whitelist', []) if x.strip()])
 
     def process_dll_file(self, dll_path, search_terms):
+        # Whitelist check
+        dll_name = os.path.basename(dll_path).lower()
+        if dll_name in self.dll_whitelist:
+            self.status_updated.emit(f"Skipping whitelisted DLL: {dll_name}")
+            return None
         # Compute SHA-1 hash of the DLL file
         try:
             with open(dll_path, 'rb') as f:

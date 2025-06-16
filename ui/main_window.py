@@ -130,8 +130,9 @@ class XMLScannerMainWindow(QMainWindow):
         # Hide results window
         if self.results_window:
             self.results_window.hide()
-            
-        
+        # Hide progress window if visible
+        if self.progress_window:
+            self.progress_window.hide()
         # Show setup window
         self.show_setup_window()
         

@@ -54,11 +54,13 @@ class ScanWorker(QThread):
     total_files_found = pyqtSignal(int)
     files_counted = pyqtSignal(int, int)  # xml_count, dll_count
 
-    def __init__(self, base_dir, search_string, scan_dlls=True):
+    def __init__(self, base_dir, search_string, scan_dlls=True, cache_dir="decomp_cache"):
         super().__init__()
         self.base_dirs = [d.strip() for d in base_dir.split(';') if d.strip()]
         self.search_terms = [s.strip().lower().encode('utf-8') for s in search_string.split(';') if s.strip()]
         self.scan_dlls = scan_dlls
+        self.cache_dir = cache_dir
+        os.makedirs(self.cache_dir, exist_ok=True)
 
     def process_dll_file(self, dll_path, search_terms):
         # Compute SHA-1 hash of the DLL file
@@ -70,38 +72,44 @@ class ScanWorker(QThread):
             return None
         global scanned_dll_hashes
         if file_hash in scanned_dll_hashes:
-            self.status_updated.emit(f"Skipping duplicate DLL (already scanned): {shorten_path(dll_path)}")
+            self.status_updated.emit(f"Skipping duplicate DLL (already scanned): {shorten_path(dll_path)})")
             return None
         scanned_dll_hashes.add(file_hash)
-        temp_dir = tempfile.mkdtemp()
-        try:
-            self.status_updated.emit(f"Decompiling {shorten_path(dll_path)}...")
-            start_time = time.time()
-            decompile_assembly(dll_path, temp_dir)
-            self.status_updated.emit(f"Decompilation complete: {shorten_path(dll_path)} Took: {time.time() - start_time:.2f} seconds")
-            occurrences_total = 0
-            total_scanned = 0
-            had_error = False
-            start_time = time.time()
-            for file_path in index_decompiled_files(temp_dir):
-                total_scanned += 1
-                try:
-                    with open(file_path, 'rb') as f:
-                        content = f.read().lower()
-                        occurrences_total += sum(content.count(term) for term in search_terms)
-                except Exception as e:
-                    self.status_updated.emit(f"Error reading decompiled file: {e}")
-                    had_error = True
-            if not had_error:
-                self.status_updated.emit(f"Scanned {total_scanned} files, found {occurrences_total} occurrences. Took: {time.time() - start_time:.2f} seconds")
-            
-            return occurrences_total if occurrences_total > 0 else None
-        except Exception as e:
-            self.status_updated.emit(f"Decompilation failed: {dll_path}\n{e}")
-            return None
-        finally:
-            shutil.rmtree(temp_dir)
-
+        cache_path = os.path.join(self.cache_dir, file_hash)
+        if os.path.exists(cache_path):
+            self.status_updated.emit(f"Using cached decompilation for {shorten_path(dll_path)}")
+            decomp_dir = cache_path
+            cleanup = False
+        else:
+            temp_dir = tempfile.mkdtemp()
+            try:
+                self.status_updated.emit(f"Decompiling {shorten_path(dll_path)}...")
+                start_time = time.time()
+                decompile_assembly(dll_path, temp_dir)
+                self.status_updated.emit(f"Decompilation complete: {shorten_path(dll_path)} Took: {time.time() - start_time:.2f} seconds")
+                shutil.move(temp_dir, cache_path)
+                decomp_dir = cache_path
+                cleanup = False
+            except Exception as e:
+                self.status_updated.emit(f"Decompilation failed: {dll_path}\n{e}")
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                return None
+        occurrences_total = 0
+        total_scanned = 0
+        had_error = False
+        start_time = time.time()
+        for file_path in index_decompiled_files(decomp_dir):
+            total_scanned += 1
+            try:
+                with open(file_path, 'rb') as f:
+                    content = f.read().lower()
+                    occurrences_total += sum(content.count(term) for term in search_terms)
+            except Exception as e:
+                self.status_updated.emit(f"Error reading decompiled file: {e}")
+                had_error = True
+        if not had_error:
+            self.status_updated.emit(f"Scanned {total_scanned} files, found {occurrences_total} occurrences. Took: {time.time() - start_time:.2f} seconds")
+        return occurrences_total if occurrences_total > 0 else None
     def run(self):
         all_files = []
         found_files = []
@@ -146,8 +154,10 @@ class ScanWorker(QThread):
             self.progress_updated.emit(int(processed / total_files * 100))
 
         # Process DLL files in a thread pool
-        with concurrent.futures.ThreadPoolExecutor(max_workers=get_cpu_count()/2) as executor:
+        max_workers = max(1, int(get_cpu_count() // 2))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_file = {executor.submit(self.process_dll_file, filename, self.search_terms): filename for filename in dll_files}
+            # This loop will not finish until all DLLs are processed
             for future in concurrent.futures.as_completed(future_to_file):
                 filename = future_to_file[future]
                 occurrences = 0

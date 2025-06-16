@@ -28,22 +28,10 @@ def parse_arguments():
 def main():
     args = parse_arguments()
       # Launch GUI if no arguments provided or --gui flag is used
-    if args.gui or (not args.base_dir and not args.search_string):
-        app = QApplication(sys.argv)
-        window = XMLScannerMainWindow()
-        # Don't show the main window - it will show the setup window automatically
-        sys.exit(app.exec_())
-    else:
-        # Legacy command line mode
-        if not args.base_dir or not args.search_string:
-            print("Error: Both base_dir and search_string are required for command line mode")
-            print("Use semicolon (;) to separate multiple directories")
-            sys.exit(1)
-            
-        results = scan_for_string(args.base_dir, args.search_string)
-        
-        for result in results:
-            print(f"Found in: {result}")
+    app = QApplication(sys.argv)
+    window = XMLScannerMainWindow()
+    # Don't show the main window - it will show the setup window automatically
+    sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()

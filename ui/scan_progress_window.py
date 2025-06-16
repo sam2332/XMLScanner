@@ -20,13 +20,13 @@ class ScanProgressWindow(QWidget):
         self.initUI()
         
     def initUI(self):
-        self.setWindowTitle("XML Scanner - Scanning in Progress")
+        self.setWindowTitle("Xml & Dll Scanner - Scanning in Progress")
         self.setGeometry(300, 300, 700, 500)
         
         layout = QVBoxLayout()
         
         # Title
-        title_label = QLabel("Scanning XML Files")
+        title_label = QLabel("Scanning XML & DLL Files")
         title_label.setFont(QFont("Arial", 16, QFont.Bold))
         layout.addWidget(title_label)
         

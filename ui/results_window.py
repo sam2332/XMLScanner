@@ -170,7 +170,7 @@ class ResultsWindow(QWidget):
                 decomp_item = QTableWidgetItem(shorten_path(decomp_file))
                 decomp_item.setData(Qt.UserRole, (dll_path, decomp_file))
                 self.results_table.setItem(row, 1, decomp_item)
-                self.results_table.setItem(row, 2, QTableWidgetItem(os.path.dirname(decomp_file)))
+                self.results_table.setItem(row, 2, QTableWidgetItem(shorten_path(dll_path)))
                 try:
                     mtime = os.path.getmtime(decomp_file)
                     modified_time = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
@@ -180,7 +180,9 @@ class ResultsWindow(QWidget):
                 occurrence_item = QTableWidgetItem()
                 occurrence_item.setData(Qt.DisplayRole, occurrence_count)
                 self.results_table.setItem(row, 4, occurrence_item)
-                self.results_table.setItem(row, 5, QTableWidgetItem(", ".join(matched_terms)))
+                matched_terms_item = QTableWidgetItem(", ".join(matched_terms))
+                matched_terms_item.setData(Qt.UserRole, len(matched_terms))
+                self.results_table.setItem(row, 5, matched_terms_item)
             else:
                 # XML: (filepath, occ, matched_terms) or (filepath, occ)
                 if len(result) == 3:
@@ -198,14 +200,43 @@ class ResultsWindow(QWidget):
                     mtime = os.path.getmtime(filepath)
                     modified_time = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
                 except:
-                    modified_time = "Unknown"
+                    modified_time = "Unknown"      
                 self.results_table.setItem(row, 3, QTableWidgetItem(modified_time))
                 occurrence_item = QTableWidgetItem()
                 occurrence_item.setData(Qt.DisplayRole, occurrence_count)
                 self.results_table.setItem(row, 4, occurrence_item)
-                self.results_table.setItem(row, 5, QTableWidgetItem(", ".join(matched_terms)))
-        self.results_table.sortItems(1)
+                matched_terms_item = QTableWidgetItem(", ".join(matched_terms))
+                matched_terms_item.setData(Qt.UserRole, len(matched_terms))
+                self.results_table.setItem(row, 5, matched_terms_item)
+        # Sort by occurrences (column 4) in descending order so items with more matches are at the top
+        self.results_table.sortItems(4, Qt.DescendingOrder)
         self.results_table.resizeColumnsToContents()
+
+        # Enable custom sorting for Matched Terms column (by number of terms)
+        self.results_table.horizontalHeader().sectionClicked.connect(self.handle_section_clicked)
+
+    def handle_section_clicked(self, logicalIndex):
+        # Custom sort for Matched Terms column (index 5)
+        if logicalIndex == 5:
+            self.results_table.setSortingEnabled(False)
+            # Extract (row, count) pairs
+            row_counts = []
+            for row in range(self.results_table.rowCount()):
+                item = self.results_table.item(row, 5)
+                count = item.data(Qt.UserRole) if item else 0
+                row_counts.append((row, count))
+            # Sort rows by count descending
+            sorted_rows = sorted(row_counts, key=lambda x: x[1], reverse=True)
+            # Rearrange rows
+            for new_row, (old_row, _) in enumerate(sorted_rows):
+                for col in range(self.results_table.columnCount()):
+                    item = self.results_table.takeItem(old_row, col)
+                    self.results_table.setItem(new_row, col, item)
+            self.results_table.setSortingEnabled(True)
+        else:
+            # Default sorting
+            self.results_table.setSortingEnabled(True)
+            self.results_table.sortItems(logicalIndex, Qt.DescendingOrder)
 
     def filter_results(self):
         """Filter results based on filename filter"""
@@ -324,28 +355,38 @@ class ResultsWindow(QWidget):
             try:
                 with open(filename, 'w', newline='', encoding='utf-8') as f:
                     f.write("File Path,Filename,Directory,Last Modified,Occurrences\n")
-                    
-                    for filepath, occurrence_count in self.scan_results:
+                    for result in self.scan_results:
+                        # Handle DLL and XML result formats
+                        if len(result) == 4:
+                            # DLL: (dll_path, decomp_file, occurrence_count, matched_terms)
+                            filepath, decomp_file, occurrence_count, _ = result
+                        elif len(result) == 3:
+                            # XML: (filepath, occurrence_count, matched_terms) or DLL: (dll_path, decomp_file, occurrence_count)
+                            if isinstance(result[1], str):
+                                # DLL: (dll_path, decomp_file, occurrence_count)
+                                filepath, decomp_file, occurrence_count = result
+                            else:
+                                # XML: (filepath, occurrence_count, matched_terms)
+                                filepath, occurrence_count, _ = result
+                                decomp_file = None
+                        else:
+                            # XML: (filepath, occurrence_count)
+                            filepath, occurrence_count = result
+                            decomp_file = None
                         filename_only = os.path.basename(filepath)
                         directory = os.path.dirname(filepath)
-                        
                         try:
                             mtime = os.path.getmtime(filepath)
                             modified_time = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
                         except:
                             modified_time = "Unknown"
-                            
-                        # Escape quotes in CSV
                         filepath_escaped = filepath.replace('"', '""')
                         filename_escaped = filename_only.replace('"', '""')
                         directory_escaped = directory.replace('"', '""')
-                        
                         f.write(f'"{filepath_escaped}","{filename_escaped}","{directory_escaped}","{modified_time}",{occurrence_count}\n')
-                        
                 QMessageBox.information(self, "Export Complete", f"Results exported to:\n{filename}")
-                
             except Exception as e:
-                QMessageBox.error(self, "Export Error", f"Could not export results: {str(e)}")
+                QMessageBox.critical(self, "Export Error", f"Could not export results: {str(e)}")
                 
     def clear_results(self):
         """Clear all results"""

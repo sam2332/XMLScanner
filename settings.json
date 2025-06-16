@@ -1,9 +1,15 @@
 {
     "default_base_directory": "c:\\Program Files (x86)\\Steam\\steamapps\\common\\RimWorld\\Data\\Core\\Defs;C:\\Program Files (x86)\\Steam\\steamapps\\workshop\\content\\294100;C:\\Program Files (x86)\\Steam\\steamapps\\common\\RimWorld\\Mods;%USERPROFILE%\\AppData\\LocalLow\\Ludeon Studios\\",
     "base_directory": "c:\\Program Files (x86)\\Steam\\steamapps\\common\\RimWorld\\Data\\Core\\Defs;C:\\Program Files (x86)\\Steam\\steamapps\\workshop\\content\\294100;C:\\Program Files (x86)\\Steam\\steamapps\\common\\RimWorld\\Mods;%USERPROFILE%\\AppData\\LocalLow\\Ludeon Studios\\",
-    "search_string": "LoadLibrary;LoadLibraryA;LoadLibraryW;LoadLibraryEx;GetProcAddress;VirtualAlloc;VirtualAllocEx;VirtualProtect;VirtualProtectEx;WriteProcessMemory;ReadProcessMemory;CreateRemoteThread;CreateThread;NtCreateThreadEx;QueueUserAPC;SetWindowsHookEx;NtMapViewOfSection;MapViewOfFile;RtlMoveMemory;memcpy;memmove;HeapAlloc;RtlAllocateHeap;RtlCreateUserThread;ShellExecute;ShellExecuteA;ShellExecuteW;WinExec;CreateProcess;CreateProcessA;CreateProcessW;system;_wsystem;WSASocket;connect;send;recv",
+    "search_string": "Process.Start;LoadLibrary;LoadLibraryA;LoadLibraryW;LoadLibraryEx;GetProcAddress;VirtualAlloc;VirtualAllocEx;VirtualProtect;VirtualProtectEx;WriteProcessMemory;ReadProcessMemory;CreateRemoteThread;CreateThread;NtCreateThreadEx;QueueUserAPC;SetWindowsHookEx;NtMapViewOfSection;MapViewOfFile;RtlMoveMemory;memcpy;memmove;HeapAlloc;RtlAllocateHeap;RtlCreateUserThread;ShellExecute;ShellExecuteA;ShellExecuteW;WinExec;CreateProcess;CreateProcessA;CreateProcessW;_wsystem;WSASocket",
     "last_scan_date": "",
     "scan_results": [],
     "scan_dlls": true,
-    "scan_xmls": false
+    "scan_xmls": false,
+    "dll_whitelist": [
+        "0Harmony.dll",
+        "HarmonyLib.dll",
+        "System.dll",
+        "mscorlib.dll"
+    ]
 }

@@ -74,7 +74,20 @@ class SetupWindow(QWidget):
         dir_layout.addWidget(self.xml_checkbox)
         
         dir_group.setLayout(dir_layout)
-        
+
+        # DLL Whitelist group
+        whitelist_group = QGroupBox("DLL Whitelist (skip these DLLs)")
+        whitelist_layout = QVBoxLayout()
+        self.whitelist_edit = QTextEdit()
+        self.whitelist_edit.setPlaceholderText("Enter DLL names to skip, one per line (e.g. UnityEngine.dll)")
+        self.whitelist_edit.setMaximumHeight(80)
+        # Load from settings
+        dll_whitelist = settings.get('dll_whitelist', [])
+        if dll_whitelist:
+            self.whitelist_edit.setText("\n".join(dll_whitelist))
+        whitelist_layout.addWidget(self.whitelist_edit)
+        whitelist_group.setLayout(whitelist_layout)
+
         # Search configuration group
         search_group = QGroupBox("Search Configuration")
         search_layout = QVBoxLayout()
@@ -123,6 +136,7 @@ class SetupWindow(QWidget):
         
         # Add all sections to main layout
         layout.addWidget(dir_group)
+        layout.addWidget(whitelist_group)
         layout.addWidget(search_group)
         layout.addLayout(button_layout)
         layout.addStretch()
@@ -172,6 +186,10 @@ class SetupWindow(QWidget):
         settings.set('scan_results', [])
         settings.set('scan_dlls', scan_dlls)
         settings.set('scan_xmls', scan_xmls)
+        # Save DLL whitelist
+        whitelist_text = self.whitelist_edit.toPlainText()
+        dll_whitelist = [x.strip() for x in whitelist_text.splitlines() if x.strip()]
+        settings.set('dll_whitelist', dll_whitelist)
         # All validation passed, emit scan request
         self.scan_requested.emit(base_dir, search_string, scan_dlls, scan_xmls)
         

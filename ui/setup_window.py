@@ -145,11 +145,11 @@ class SetupWindow(QWidget):
             
         # Validate multiple directories
         directories = [d.strip() for d in base_dir.split(';') if d.strip()]
-        invalid_dirs = [d for d in directories if not os.path.exists(d)]
+        invalid_dirs = [d for d in directories if not os.path.exists(os.path.expanduser(os.path.expandvars(d)))]
         
         if invalid_dirs:
-            QMessageBox.error(self, "Error", 
-                            f"The following directories do not exist:\n" + "\n".join(invalid_dirs))
+            QMessageBox.critical(self, "Error", 
+                                f"The following directories do not exist:\n" + "\n".join(invalid_dirs))
             return
             
         # Save settings

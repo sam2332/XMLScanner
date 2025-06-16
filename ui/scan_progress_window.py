@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                             QLabel, QProgressBar, QTextEdit, QMessageBox)
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QFont
-
+from libs.util import shorten_path
 class ScanProgressWindow(QWidget):
     """Window showing scan progress and status"""
     scan_cancelled = pyqtSignal()
@@ -83,6 +83,7 @@ class ScanProgressWindow(QWidget):
         # Track results
         self.scan_results = []
         self.files_found_count = 0
+        self.stats_label.setText(f"Files found: {self.files_found_count}")
         
     def start_scan(self, scan_worker):
         """Start the scan with the given worker"""

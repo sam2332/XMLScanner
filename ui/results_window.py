@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                             QMessageBox, QFileDialog, QGroupBox, QLineEdit)
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
-
+from libs.util import shorten_path
 class ResultsWindow(QWidget):
     """Window displaying scan results in a table format"""
     new_scan_requested = pyqtSignal()
@@ -61,6 +61,7 @@ class ResultsWindow(QWidget):
         
         # Results table
         self.results_table = QTableWidget()
+        self.results_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.results_table.setColumnCount(5)
         self.results_table.setHorizontalHeaderLabels([
             "File Path", "Filename", "Directory", "Last Modified", "Occurrences"
@@ -148,19 +149,18 @@ class ResultsWindow(QWidget):
     def populate_table(self, results):
         """Populate the table with results"""
         self.results_table.setRowCount(len(results))
-        
         for row, (filepath, occurrence_count) in enumerate(results):
-            # File path
-            self.results_table.setItem(row, 0, QTableWidgetItem(filepath))
-            
+            # Shortened file path for display
+            short_path = shorten_path(filepath)
+            item = QTableWidgetItem(short_path)
+            item.setData(Qt.UserRole, filepath)  # Store full path
+            self.results_table.setItem(row, 0, item)
             # Filename
             filename = os.path.basename(filepath)
             self.results_table.setItem(row, 1, QTableWidgetItem(filename))
-            
             # Directory
             directory = os.path.dirname(filepath)
             self.results_table.setItem(row, 2, QTableWidgetItem(directory))
-            
             # Last modified
             try:
                 mtime = os.path.getmtime(filepath)
@@ -168,12 +168,10 @@ class ResultsWindow(QWidget):
             except:
                 modified_time = "Unknown"
             self.results_table.setItem(row, 3, QTableWidgetItem(modified_time))
-            
             # Occurrences
             occurrence_item = QTableWidgetItem()
             occurrence_item.setData(Qt.DisplayRole, occurrence_count)  # For proper numeric sorting
             self.results_table.setItem(row, 4, occurrence_item)
-            
         # Sort by filename by default
         self.results_table.sortItems(1)
         
@@ -207,34 +205,38 @@ class ResultsWindow(QWidget):
         """Open the selected file in its default application"""
         current_row = self.results_table.currentRow()
         if current_row >= 0:
-            filepath = self.results_table.item(current_row, 0).text()
-            try:
-                os.startfile(filepath)
-            except Exception as e:
-                QMessageBox.error(self, "Error", f"Could not open file: {str(e)}")
+            item = self.results_table.item(current_row, 0)
+            filepath = item.data(Qt.UserRole) if item else None
+            if filepath:
+                try:
+                    os.startfile(filepath)
+                except Exception as e:
+                    QMessageBox.critical(self, "Error", f"Could not open file: {str(e)}")
                 
     def open_selected_directory(self):
         """Open the directory containing the selected file"""
         current_row = self.results_table.currentRow()
         if current_row >= 0:
-            filepath = self.results_table.item(current_row, 0).text()
-            directory = os.path.dirname(filepath)
-            try:
-                os.startfile(directory)
-            except Exception as e:
-                QMessageBox.error(self, "Error", f"Could not open directory: {str(e)}")
+            item = self.results_table.item(current_row, 0)
+            filepath = item.data(Qt.UserRole) if item else None
+            if filepath:
+                directory = os.path.dirname(filepath)
+                try:
+                    os.startfile(directory)
+                except Exception as e:
+                    QMessageBox.critical(self, "Error", f"Could not open directory: {str(e)}")
                 
     def copy_selected_path(self):
         """Copy the selected file path to clipboard"""
         current_row = self.results_table.currentRow()
         if current_row >= 0:
-            filepath = self.results_table.item(current_row, 0).text()
-            
-            from PyQt5.QtWidgets import QApplication
-            clipboard = QApplication.clipboard()
-            clipboard.setText(filepath)
-            
-            QMessageBox.information(self, "Copied", f"File path copied to clipboard:\n{filepath}")
+            item = self.results_table.item(current_row, 0)
+            filepath = item.data(Qt.UserRole) if item else None
+            if filepath:
+                from PyQt5.QtWidgets import QApplication
+                clipboard = QApplication.clipboard()
+                clipboard.setText(filepath)
+                QMessageBox.information(self, "Copied", f"File path copied to clipboard:\n{filepath}")
             
     def export_results(self):
         """Export results to a CSV file"""
@@ -282,3 +284,4 @@ class ResultsWindow(QWidget):
     def request_new_scan(self):
         """Request a new scan"""
         self.new_scan_requested.emit()
+        

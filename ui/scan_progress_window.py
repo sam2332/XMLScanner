@@ -47,6 +47,14 @@ class ScanProgressWindow(QWidget):
         self.stats_label = QLabel("Files found: 0")
         self.stats_label.setFont(QFont("Arial", 10))
         progress_layout.addWidget(self.stats_label)
+
+        # Add XML and DLL count labels
+        self.xml_count_label = QLabel("XML files found: 0")
+        self.xml_count_label.setFont(QFont("Arial", 10))
+        progress_layout.addWidget(self.xml_count_label)
+        self.dll_count_label = QLabel("DLL files found: 0")
+        self.dll_count_label.setFont(QFont("Arial", 10))
+        progress_layout.addWidget(self.dll_count_label)
         
         layout.addLayout(progress_layout)
         
@@ -90,12 +98,15 @@ class ScanProgressWindow(QWidget):
         self.scan_worker = scan_worker
         self.scan_results.clear()
         self.files_found_count = 0
-        
+
         # Connect signals
         self.scan_worker.progress_updated.connect(self.update_progress)
         self.scan_worker.status_updated.connect(self.update_status)
         self.scan_worker.file_found.connect(self.file_found)
         self.scan_worker.scan_completed.connect(self.scan_completed)
+        # Connect to new files_counted signal
+        if hasattr(self.scan_worker, 'files_counted'):
+            self.scan_worker.files_counted.connect(self.update_file_counts)
         
         # Reset UI
         self.progress_bar.setValue(0)
@@ -188,3 +199,7 @@ class ScanProgressWindow(QWidget):
                 event.ignore()
         else:
             event.accept()
+
+    def update_file_counts(self, xml_count, dll_count):
+        self.xml_count_label.setText(f"XML files found: {xml_count}")
+        self.dll_count_label.setText(f"DLL files found: {dll_count}")

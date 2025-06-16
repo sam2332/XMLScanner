@@ -5,12 +5,13 @@ import shutil
 import time
 import hashlib
 from PyQt5.QtCore import QThread, pyqtSignal
+import concurrent.futures
 
 # -- ILSpy-based decompiler integration --
 import subprocess
 import re
 from typing import List, Dict
-from libs.util import shorten_path
+from libs.util import shorten_path,get_cpu_count
 def decompile_assembly(dll_path: str, output_dir: str) -> str:
     
 
@@ -51,6 +52,7 @@ class ScanWorker(QThread):
     file_found = pyqtSignal(str, int)
     scan_completed = pyqtSignal(list)
     total_files_found = pyqtSignal(int)
+    files_counted = pyqtSignal(int, int)  # xml_count, dll_count
 
     def __init__(self, base_dir, search_string, scan_dlls=True):
         super().__init__()
@@ -117,31 +119,49 @@ class ScanWorker(QThread):
         total_files = len(all_files)
         self.total_files_found.emit(total_files)
 
+        xml_files = [f for f in all_files if f.endswith('.xml')]
+        dll_files = [f for f in all_files if f.endswith('.dll')]
+        self.files_counted.emit(len(xml_files), len(dll_files))
+
         if total_files == 0:
             self.status_updated.emit("No XML or DLL files found.")
             self.scan_completed.emit([])
             return
 
-        for i, filename in enumerate(all_files):
+        processed = 0
+        # Process XML files sequentially
+        for filename in xml_files:
             occurrences = 0
             try:
                 self.status_updated.emit(f"Scanning: {shorten_path(filename)}")
-
-                if filename.endswith('.xml'):
-                    with open(filename, 'rb') as file:
-                        content = file.read().lower()
-                        occurrences = sum(content.count(term) for term in self.search_terms)
-                elif filename.endswith('.dll'):
-                    result = self.process_dll_file(filename, self.search_terms)
-                    occurrences = result if result else 0
-
+                with open(filename, 'rb') as file:
+                    content = file.read().lower()
+                    occurrences = sum(content.count(term) for term in self.search_terms)
                 if occurrences > 0:
                     found_files.append((filename, occurrences))
                     self.file_found.emit(filename, occurrences)
-
-                self.progress_updated.emit(int((i + 1) / len(all_files) * 100))
             except Exception as e:
                 self.status_updated.emit(f"Error processing {filename}: {e}")
+            processed += 1
+            self.progress_updated.emit(int(processed / total_files * 100))
+
+        # Process DLL files in a thread pool
+        with concurrent.futures.ThreadPoolExecutor(max_workers=get_cpu_count()/2) as executor:
+            future_to_file = {executor.submit(self.process_dll_file, filename, self.search_terms): filename for filename in dll_files}
+            for future in concurrent.futures.as_completed(future_to_file):
+                filename = future_to_file[future]
+                occurrences = 0
+                try:
+                    self.status_updated.emit(f"Scanning: {shorten_path(filename)}")
+                    result = future.result()
+                    occurrences = result if result else 0
+                    if occurrences > 0:
+                        found_files.append((filename, occurrences))
+                        self.file_found.emit(filename, occurrences)
+                except Exception as e:
+                    self.status_updated.emit(f"Error processing {filename}: {e}")
+                processed += 1
+                self.progress_updated.emit(int(processed / total_files * 100))
 
         self.status_updated.emit(f"Scan completed. Found {len(found_files)} matching files.")
         self.scan_completed.emit(found_files)

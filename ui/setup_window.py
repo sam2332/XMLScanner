@@ -5,14 +5,14 @@ Setup/Configuration window for the XML Scanner
 import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                             QLineEdit, QLabel, QFileDialog, QGroupBox, 
-                            QTextEdit, QMessageBox)
+                            QTextEdit, QMessageBox, QCheckBox)
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QFont
 from libs.Settings import Settings
 settings = Settings()
 class SetupWindow(QWidget):
     """Window for configuring scan parameters"""
-    scan_requested = pyqtSignal(str, str)  # base_dir, search_string
+    scan_requested = pyqtSignal(str, str, bool)  # base_dir, search_string, scan_dlls
     
     def __init__(self):
         super().__init__()
@@ -62,6 +62,12 @@ class SetupWindow(QWidget):
         dir_layout.addWidget(self.dir_label)
         dir_layout.addLayout(dir_input_layout)
         dir_layout.addWidget(dir_help)
+        
+        # DLL scan checkbox
+        self.dll_checkbox = QCheckBox("Scan DLL files (decompile and search)")
+        self.dll_checkbox.setChecked(True)
+        dir_layout.addWidget(self.dll_checkbox)
+        
         dir_group.setLayout(dir_layout)
         
         # Search configuration group
@@ -138,6 +144,7 @@ class SetupWindow(QWidget):
         """Validate inputs and emit scan request"""
         base_dir = self.dir_input.text().strip()
         search_string = self.search_input.text().strip()
+        scan_dlls = self.dll_checkbox.isChecked()
         
         if not base_dir or not search_string:
             QMessageBox.warning(self, "Warning", "Please provide both directory and search string.")
@@ -158,8 +165,8 @@ class SetupWindow(QWidget):
         settings.set('last_scan_date', '')
         settings.set('scan_results', [])
         # All validation passed, emit scan request
-        self.scan_requested.emit(base_dir, search_string)
+        self.scan_requested.emit(base_dir, search_string, scan_dlls)
         
     def get_scan_parameters(self):
         """Get current scan parameters"""
-        return self.dir_input.text().strip(), self.search_input.text().strip()
+        return self.dir_input.text().strip(), self.search_input.text().strip(), self.dll_checkbox.isChecked()

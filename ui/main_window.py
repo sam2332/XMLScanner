@@ -50,7 +50,7 @@ class XMLScannerMainWindow(QMainWindow):
         # Hide main window as we're using separate windows
         self.hide()
         
-    def start_scan(self, base_dir, search_string):
+    def start_scan(self, base_dir, search_string, scan_dlls=True):
         """Start the scanning process"""
         self.current_search_string = search_string
         self.current_directories = [d.strip() for d in base_dir.split(';') if d.strip()]
@@ -64,8 +64,9 @@ class XMLScannerMainWindow(QMainWindow):
             self.progress_window = ScanProgressWindow()
             self.progress_window.scan_cancelled.connect(self.on_scan_cancelled)
             self.progress_window.scan_finished.connect(self.on_scan_finished)
-              # Create scan worker
-        scan_worker = ScanWorker(base_dir, search_string)
+            
+        # Create scan worker with scan_dlls argument
+        scan_worker = ScanWorker(base_dir, search_string, scan_dlls)
         
         # Connect total files signal to track scan progress
         scan_worker.total_files_found.connect(self.on_total_files_found)
@@ -85,7 +86,8 @@ class XMLScannerMainWindow(QMainWindow):
         # Hide progress window
         if self.progress_window:
             self.progress_window.hide()
-              # Show setup window again
+            
+        # Show setup window again
         self.show_setup_window()
         
     def on_scan_finished(self, results):

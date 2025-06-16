@@ -48,10 +48,11 @@ class ScanWorker(QThread):
     scan_completed = pyqtSignal(list)
     total_files_found = pyqtSignal(int)
 
-    def __init__(self, base_dir, search_string):
+    def __init__(self, base_dir, search_string, scan_dlls=True):
         super().__init__()
         self.base_dirs = [d.strip() for d in base_dir.split(';') if d.strip()]
         self.search_terms = [s.strip().lower().encode('utf-8') for s in search_string.split(';') if s.strip()]
+        self.scan_dlls = scan_dlls
 
     def process_dll_file(self, dll_path, search_terms):
         temp_dir = tempfile.mkdtemp()
@@ -86,21 +87,17 @@ class ScanWorker(QThread):
     def run(self):
         all_files = []
         found_files = []
-
         self.status_updated.emit("Collecting XML and DLL files...")
-
         for directory in self.base_dirs:
             if not os.path.exists(directory):
                 self.status_updated.emit(f"Warning: Directory does not exist: {directory}")
                 continue
-
             self.status_updated.emit(f"Scanning directory: {directory}")
             xml_files = glob.glob(os.path.join(directory, '**', '*.xml'), recursive=True)
-            dll_files = glob.glob(os.path.join(directory, '**', '*.dll'), recursive=True)
+            dll_files = glob.glob(os.path.join(directory, '**', '*.dll'), recursive=True) if self.scan_dlls else []
             dir_files = xml_files + dll_files
             all_files.extend(dir_files)
             self.status_updated.emit(f"Found {len(dir_files)} total files in {directory}")
-
         total_files = len(all_files)
         self.total_files_found.emit(total_files)
 

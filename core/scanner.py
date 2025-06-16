@@ -3,6 +3,7 @@ import glob
 import tempfile
 import shutil
 import time
+import hashlib
 from PyQt5.QtCore import QThread, pyqtSignal
 
 # -- ILSpy-based decompiler integration --
@@ -40,6 +41,9 @@ def index_decompiled_files(directory: str) -> List[str]:
                 cs_files.append(os.path.join(root, f))
     return cs_files
 
+# Global set to track scanned DLL hashes
+scanned_dll_hashes = set()
+
 # -- Worker thread --
 class ScanWorker(QThread):
     progress_updated = pyqtSignal(int)
@@ -55,6 +59,18 @@ class ScanWorker(QThread):
         self.scan_dlls = scan_dlls
 
     def process_dll_file(self, dll_path, search_terms):
+        # Compute SHA-1 hash of the DLL file
+        try:
+            with open(dll_path, 'rb') as f:
+                file_hash = hashlib.sha1(f.read()).hexdigest()
+        except Exception as e:
+            self.status_updated.emit(f"Error hashing DLL: {dll_path} - {e}")
+            return None
+        global scanned_dll_hashes
+        if file_hash in scanned_dll_hashes:
+            self.status_updated.emit(f"Skipping duplicate DLL (already scanned): {shorten_path(dll_path)}")
+            return None
+        scanned_dll_hashes.add(file_hash)
         temp_dir = tempfile.mkdtemp()
         try:
             self.status_updated.emit(f"Decompiling {shorten_path(dll_path)}...")

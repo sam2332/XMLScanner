@@ -1,0 +1,152 @@
+"""
+Setup/Configuration window for the XML Scanner
+"""
+
+import os
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
+                            QLineEdit, QLabel, QFileDialog, QGroupBox, 
+                            QTextEdit, QMessageBox)
+from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtGui import QFont
+
+class SetupWindow(QWidget):
+    """Window for configuring scan parameters"""
+    scan_requested = pyqtSignal(str, str)  # base_dir, search_string
+    
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+        
+    def initUI(self):
+        self.setWindowTitle("XML Scanner Setup - Waste Not Want Not Mod")
+        self.setGeometry(200, 200, 800, 500)
+        
+        layout = QVBoxLayout()
+        
+        # Title
+        title_label = QLabel("XML Scanner Setup")
+        title_label.setFont(QFont("Arial", 16, QFont.Bold))
+        layout.addWidget(title_label)
+        
+        # Directory configuration group
+        dir_group = QGroupBox("Directory Configuration")
+        dir_layout = QVBoxLayout()
+        
+        # Directory selection
+        dir_input_layout = QHBoxLayout()
+        self.dir_label = QLabel("Base Directories (separate multiple paths with ;):")
+        self.dir_input = QLineEdit()
+        self.dir_input.setText(r"c:\Program Files (x86)\Steam\steamapps\common\RimWorld\Data\Core\Defs;C:\Program Files (x86)\Steam\steamapps\workshop\content\294100")
+        self.dir_input.setMinimumHeight(30)
+        
+        self.dir_button = QPushButton("Browse...")
+        self.dir_button.clicked.connect(self.browse_directory)
+        self.dir_button.setMaximumWidth(100)
+        
+        dir_input_layout.addWidget(self.dir_input)
+        dir_input_layout.addWidget(self.dir_button)
+        
+        # Add directory help text
+        dir_help = QTextEdit()
+        dir_help.setMaximumHeight(80)
+        dir_help.setReadOnly(True)
+        dir_help.setText("Default paths include:\n" +
+                        "• RimWorld Core Defs: Game's base definitions\n" +
+                        "• Workshop Content: Steam Workshop mods\n" +
+                        "Use semicolon (;) to separate multiple directories.")
+        
+        dir_layout.addWidget(self.dir_label)
+        dir_layout.addLayout(dir_input_layout)
+        dir_layout.addWidget(dir_help)
+        dir_group.setLayout(dir_layout)
+        
+        # Search configuration group
+        search_group = QGroupBox("Search Configuration")
+        search_layout = QVBoxLayout()
+        
+        # Search string
+        self.search_label = QLabel("Search String:")
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Enter string to search for...")
+        self.search_input.setMinimumHeight(30)
+        self.search_input.returnPressed.connect(self.start_scan)  # Allow Enter key to start scan
+        
+        # Search help text
+        search_help = QTextEdit()
+        search_help.setMaximumHeight(100)
+        search_help.setReadOnly(True)
+        search_help.setText("Search examples:\n" +
+                           "• Class names: 'Pawn', 'Building_WorkTable'\n" +
+                           "• Def names: 'Steel', 'ComponentIndustrial'\n" +
+                           "• XML tags: '<defName>', '<workType>'\n" +
+                           "• Attributes: 'Abstract=\"true\"'\n" +
+                           "Search is case-sensitive and searches file content.")
+        
+        search_layout.addWidget(self.search_label)
+        search_layout.addWidget(self.search_input)
+        search_layout.addWidget(search_help)
+        search_group.setLayout(search_layout)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        self.scan_button = QPushButton("Start Scan")
+        self.scan_button.clicked.connect(self.start_scan)
+        self.scan_button.setMinimumHeight(40)
+        self.scan_button.setFont(QFont("Arial", 12, QFont.Bold))
+        
+        self.clear_button = QPushButton("Clear")
+        self.clear_button.clicked.connect(self.clear_fields)
+        self.clear_button.setMaximumWidth(100)
+        
+        button_layout.addWidget(self.clear_button)
+        button_layout.addStretch()
+        button_layout.addWidget(self.scan_button)
+        
+        # Add all sections to main layout
+        layout.addWidget(dir_group)
+        layout.addWidget(search_group)
+        layout.addLayout(button_layout)
+        layout.addStretch()
+        
+        self.setLayout(layout)
+        
+    def browse_directory(self):
+        """Open directory browser and add to path list"""
+        directory = QFileDialog.getExistingDirectory(self, "Select Directory to Scan")
+        if directory:
+            # If there's already content, append with semicolon separator
+            current_text = self.dir_input.text().strip()
+            if current_text:
+                self.dir_input.setText(current_text + ";" + directory)
+            else:
+                self.dir_input.setText(directory)
+                
+    def clear_fields(self):
+        """Clear all input fields"""
+        self.search_input.clear()
+        # Don't clear directory input as it has useful defaults
+        
+    def start_scan(self):
+        """Validate inputs and emit scan request"""
+        base_dir = self.dir_input.text().strip()
+        search_string = self.search_input.text().strip()
+        
+        if not base_dir or not search_string:
+            QMessageBox.warning(self, "Warning", "Please provide both directory and search string.")
+            return
+            
+        # Validate multiple directories
+        directories = [d.strip() for d in base_dir.split(';') if d.strip()]
+        invalid_dirs = [d for d in directories if not os.path.exists(d)]
+        
+        if invalid_dirs:
+            QMessageBox.error(self, "Error", 
+                            f"The following directories do not exist:\n" + "\n".join(invalid_dirs))
+            return
+            
+        # All validation passed, emit scan request
+        self.scan_requested.emit(base_dir, search_string)
+        
+    def get_scan_parameters(self):
+        """Get current scan parameters"""
+        return self.dir_input.text().strip(), self.search_input.text().strip()

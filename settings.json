@@ -1,7 +1,7 @@
 {
     "default_base_directory": "c:\\Program Files (x86)\\Steam\\steamapps\\common\\RimWorld\\Data\\Core\\Defs;C:\\Program Files (x86)\\Steam\\steamapps\\workshop\\content\\294100;C:\\Program Files (x86)\\Steam\\steamapps\\common\\RimWorld\\Mods;%USERPROFILE%\\AppData\\LocalLow\\Ludeon Studios\\",
     "base_directory": "c:\\Program Files (x86)\\Steam\\steamapps\\common\\RimWorld\\Data\\Core\\Defs;C:\\Program Files (x86)\\Steam\\steamapps\\workshop\\content\\294100;C:\\Program Files (x86)\\Steam\\steamapps\\common\\RimWorld\\Mods;%USERPROFILE%\\AppData\\LocalLow\\Ludeon Studios\\",
-    "search_string": "WebClient.DownloadFile; HttpClient; WebRequest; TcpClient; UdpClient; Microsoft.Win32.Registry",
+    "search_string": "HttpClient;HttpWebRequest;HttpWebResponse;WebClient;SendAsync;GetAsync;PostAsync;PutAsync;DeleteAsync;DownloadString;DownloadData;UploadString;UploadData;OpenRead;GetResponse;BeginGetResponse;EndGetResponse;BeginGetRequestStream;EndGetRequestStream;CreateRequest;ExecuteRequest;SendRequest;FetchAsync;InvokeHttp;DoHttpRequest;SendHttpRequest;PerformRequest;MakeRequest",
     "last_scan_date": "",
     "scan_results": [],
     "scan_dlls": true,

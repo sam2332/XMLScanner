@@ -116,7 +116,12 @@ class ScanWorker(QThread):
             self.status_updated.emit(f"Scanned {total_scanned} files, found {occurrences_total} occurrences. Took: {time.time() - start_time:.2f} seconds")
         # Return all matched files for this DLL
         return matched_files if matched_files else None
+        
     def run(self):
+        # Clear the global hash set at the start of each new scan
+        global scanned_dll_hashes
+        scanned_dll_hashes.clear()
+        
         all_files = []
         found_files = []
         self.status_updated.emit("Collecting XML and DLL files...")

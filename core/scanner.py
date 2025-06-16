@@ -54,11 +54,12 @@ class ScanWorker(QThread):
     total_files_found = pyqtSignal(int)
     files_counted = pyqtSignal(int, int)  # xml_count, dll_count
 
-    def __init__(self, base_dir, search_string, scan_dlls=True, cache_dir="decomp_cache"):
+    def __init__(self, base_dir, search_string, scan_dlls=True, scan_xmls=True, cache_dir="decomp_cache"):
         super().__init__()
         self.base_dirs = [d.strip() for d in base_dir.split(';') if d.strip()]
         self.search_terms = [s.strip().lower().encode('utf-8') for s in search_string.split(';') if s.strip()]
         self.scan_dlls = scan_dlls
+        self.scan_xmls = scan_xmls
         self.cache_dir = cache_dir
         os.makedirs(self.cache_dir, exist_ok=True)
 
@@ -119,7 +120,7 @@ class ScanWorker(QThread):
                 self.status_updated.emit(f"Warning: Directory does not exist: {directory}")
                 continue
             self.status_updated.emit(f"Scanning directory: {directory}")
-            xml_files = glob.glob(os.path.join(directory, '**', '*.xml'), recursive=True)
+            xml_files = glob.glob(os.path.join(directory, '**', '*.xml'), recursive=True) if self.scan_xmls else []
             dll_files = glob.glob(os.path.join(directory, '**', '*.dll'), recursive=True) if self.scan_dlls else []
             dir_files = xml_files + dll_files
             all_files.extend(dir_files)
@@ -138,33 +139,14 @@ class ScanWorker(QThread):
 
         processed = 0
         # Process XML files sequentially
-        for filename in xml_files:
-            occurrences = 0
-            try:
-                self.status_updated.emit(f"Scanning: {shorten_path(filename)}")
-                with open(filename, 'rb') as file:
-                    content = file.read().lower()
-                    occurrences = sum(content.count(term) for term in self.search_terms)
-                if occurrences > 0:
-                    found_files.append((filename, occurrences))
-                    self.file_found.emit(filename, occurrences)
-            except Exception as e:
-                self.status_updated.emit(f"Error processing {filename}: {e}")
-            processed += 1
-            self.progress_updated.emit(int(processed / total_files * 100))
-
-        # Process DLL files in a thread pool
-        max_workers = max(1, int(get_cpu_count() // 2))
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_file = {executor.submit(self.process_dll_file, filename, self.search_terms): filename for filename in dll_files}
-            # This loop will not finish until all DLLs are processed
-            for future in concurrent.futures.as_completed(future_to_file):
-                filename = future_to_file[future]
+        if self.scan_xmls:
+            for filename in xml_files:
                 occurrences = 0
                 try:
                     self.status_updated.emit(f"Scanning: {shorten_path(filename)}")
-                    result = future.result()
-                    occurrences = result if result else 0
+                    with open(filename, 'rb') as file:
+                        content = file.read().lower()
+                        occurrences = sum(content.count(term) for term in self.search_terms)
                     if occurrences > 0:
                         found_files.append((filename, occurrences))
                         self.file_found.emit(filename, occurrences)
@@ -172,6 +154,27 @@ class ScanWorker(QThread):
                     self.status_updated.emit(f"Error processing {filename}: {e}")
                 processed += 1
                 self.progress_updated.emit(int(processed / total_files * 100))
+
+        # Process DLL files in a thread pool
+        if self.scan_dlls:
+            max_workers = max(1, int(get_cpu_count() // 2))
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_file = {executor.submit(self.process_dll_file, filename, self.search_terms): filename for filename in dll_files}
+                # This loop will not finish until all DLLs are processed
+                for future in concurrent.futures.as_completed(future_to_file):
+                    filename = future_to_file[future]
+                    occurrences = 0
+                    try:
+                        self.status_updated.emit(f"Scanning: {shorten_path(filename)}")
+                        result = future.result()
+                        occurrences = result if result else 0
+                        if occurrences > 0:
+                            found_files.append((filename, occurrences))
+                            self.file_found.emit(filename, occurrences)
+                    except Exception as e:
+                        self.status_updated.emit(f"Error processing {filename}: {e}")
+                    processed += 1
+                    self.progress_updated.emit(int(processed / total_files * 100))
 
         self.status_updated.emit(f"Scan completed. Found {len(found_files)} matching files.")
         self.scan_completed.emit(found_files)

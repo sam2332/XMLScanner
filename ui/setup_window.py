@@ -12,7 +12,7 @@ from libs.Settings import Settings
 settings = Settings()
 class SetupWindow(QWidget):
     """Window for configuring scan parameters"""
-    scan_requested = pyqtSignal(str, str, bool)  # base_dir, search_string, scan_dlls
+    scan_requested = pyqtSignal(str, str, bool, bool)  # base_dir, search_string, scan_dlls, scan_xmls
     
     def __init__(self):
         super().__init__()
@@ -65,8 +65,13 @@ class SetupWindow(QWidget):
         
         # DLL scan checkbox
         self.dll_checkbox = QCheckBox("Scan DLL files (decompile and search)")
-        self.dll_checkbox.setChecked(True)
+        self.dll_checkbox.setChecked(settings.get('scan_dlls', True))
         dir_layout.addWidget(self.dll_checkbox)
+        
+        # XML scan checkbox
+        self.xml_checkbox = QCheckBox("Scan XML files")
+        self.xml_checkbox.setChecked(settings.get('scan_xmls', True))
+        dir_layout.addWidget(self.xml_checkbox)
         
         dir_group.setLayout(dir_layout)
         
@@ -145,6 +150,7 @@ class SetupWindow(QWidget):
         base_dir = self.dir_input.text().strip()
         search_string = self.search_input.text().strip()
         scan_dlls = self.dll_checkbox.isChecked()
+        scan_xmls = self.xml_checkbox.isChecked()
         
         if not base_dir or not search_string:
             QMessageBox.warning(self, "Warning", "Please provide both directory and search string.")
@@ -164,9 +170,11 @@ class SetupWindow(QWidget):
         settings.set('search_string', search_string)
         settings.set('last_scan_date', '')
         settings.set('scan_results', [])
+        settings.set('scan_dlls', scan_dlls)
+        settings.set('scan_xmls', scan_xmls)
         # All validation passed, emit scan request
-        self.scan_requested.emit(base_dir, search_string, scan_dlls)
+        self.scan_requested.emit(base_dir, search_string, scan_dlls, scan_xmls)
         
     def get_scan_parameters(self):
         """Get current scan parameters"""
-        return self.dir_input.text().strip(), self.search_input.text().strip(), self.dll_checkbox.isChecked()
+        return self.dir_input.text().strip(), self.search_input.text().strip(), self.dll_checkbox.isChecked(), self.xml_checkbox.isChecked()

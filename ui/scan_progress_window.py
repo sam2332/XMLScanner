@@ -98,6 +98,8 @@ class ScanProgressWindow(QWidget):
         self.scan_worker = scan_worker
         self.scan_results.clear()
         self.files_found_count = 0
+        # Reset stats label
+        self.stats_label.setText(f"Files found: {self.files_found_count}")
 
         # Connect signals
         self.scan_worker.progress_updated.connect(self.update_progress)

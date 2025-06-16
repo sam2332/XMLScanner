@@ -70,12 +70,11 @@ class ScanProgressWindow(QWidget):
         
         # Buttons
         button_layout = QHBoxLayout()
-        
         self.cancel_button = QPushButton("Cancel Scan")
         self.cancel_button.clicked.connect(self.cancel_scan)
         self.cancel_button.setMaximumWidth(120)
         
-        self.close_button = QPushButton("Close")
+        self.close_button = QPushButton("Close Log")
         self.close_button.clicked.connect(self.close)
         self.close_button.setEnabled(False)  # Disabled until scan completes
         self.close_button.setMaximumWidth(100)
@@ -141,8 +140,7 @@ class ScanProgressWindow(QWidget):
         timestamp = datetime.now().strftime('%H:%M:%S')
         basename = os.path.basename(filename)
         self.log_text.append(f"[{timestamp}] ✓ Found match: {basename} ({occurrence_count} occurrences) - [{', '.join(matches)}]")
-        
-        # Auto-scroll to bottom
+          # Auto-scroll to bottom
         scrollbar = self.log_text.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
         
@@ -152,19 +150,24 @@ class ScanProgressWindow(QWidget):
         self.cancel_button.setEnabled(False)
         self.close_button.setEnabled(True)
         
+        # Update window title to indicate completion
+        self.setWindowTitle("XML & DLL Scanner - Scan Complete (Log)")
+        
         # Update final status
         if results:
             self.status_label.setText(f"Scan completed! Found {len(results)} files with matches.")
             self.progress_bar.setValue(100)
-            
-            # Emit signal to show results
         else:
             self.status_label.setText("Scan completed. No matches found.")
         
-        
-            
         timestamp = datetime.now().strftime('%H:%M:%S')
         self.log_text.append(f"[{timestamp}] === SCAN COMPLETE ===")
+        self.log_text.append(f"[{timestamp}] Note: This log window can remain open while viewing results")
+        
+        # Auto-scroll to bottom
+        scrollbar = self.log_text.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+        
         self.scan_finished.emit(results)
     def cancel_scan(self):
         """Cancel the running scan"""

@@ -76,25 +76,24 @@ class XMLScannerMainWindow(QMainWindow):
         self.progress_window.raise_()
         self.progress_window.activateWindow()
         self.progress_window.start_scan(scan_worker)
-        
     def on_total_files_found(self, total_files):
         """Handle total files found signal from scanner worker"""
         self.total_files_scanned = total_files
         
     def on_scan_cancelled(self):
         """Handle scan cancellation"""
-        # Hide progress window
-        if self.progress_window:
-            self.progress_window.hide()
+        # Don't automatically hide progress window - let user close it manually  
+        # if self.progress_window:
+        #     self.progress_window.hide()
             
         # Show setup window again
         self.show_setup_window()
         
     def on_scan_finished(self, results):
         """Handle scan completion"""
-        # Hide progress window
-        if self.progress_window:
-            self.progress_window.hide()
+        # Don't automatically hide the progress window - let user close it manually
+        # if self.progress_window:
+        #     self.progress_window.hide()
             
         if results:
             # Show results window

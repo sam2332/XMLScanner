@@ -144,13 +144,14 @@ class ScanProgressWindow(QWidget):
             self.progress_bar.setValue(100)
             
             # Emit signal to show results
-            self.scan_finished.emit(results)
         else:
             self.status_label.setText("Scan completed. No matches found.")
+        
+        
             
         timestamp = datetime.now().strftime('%H:%M:%S')
         self.log_text.append(f"[{timestamp}] === SCAN COMPLETE ===")
-        
+        self.scan_finished.emit(results)
     def cancel_scan(self):
         """Cancel the running scan"""
         if self.scan_worker and self.scan_worker.isRunning():

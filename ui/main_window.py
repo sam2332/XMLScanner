@@ -64,15 +64,21 @@ class XMLScannerMainWindow(QMainWindow):
             self.progress_window = ScanProgressWindow()
             self.progress_window.scan_cancelled.connect(self.on_scan_cancelled)
             self.progress_window.scan_finished.connect(self.on_scan_finished)
-            
-        # Create scan worker
+              # Create scan worker
         scan_worker = ScanWorker(base_dir, search_string)
+        
+        # Connect total files signal to track scan progress
+        scan_worker.total_files_found.connect(self.on_total_files_found)
         
         # Show progress window and start scan
         self.progress_window.show()
         self.progress_window.raise_()
         self.progress_window.activateWindow()
         self.progress_window.start_scan(scan_worker)
+        
+    def on_total_files_found(self, total_files):
+        """Handle total files found signal from scanner worker"""
+        self.total_files_scanned = total_files
         
     def on_scan_cancelled(self):
         """Handle scan cancellation"""
@@ -92,15 +98,21 @@ class XMLScannerMainWindow(QMainWindow):
             # Show results window
             self.show_results_window(results)
         else:
-            # No results found, show custom dialog with new scan option
-            dialog = NoResultsDialog(
-                self.current_search_string, 
-                self.current_directories, 
-                self.total_files_scanned
-            )
-            dialog.new_scan_requested.connect(self.on_new_scan_requested)
-            dialog.exec_()
+            self.show_no_results_dialog()
+    def show_no_results_dialog(self):
+        """Show dialog when no results are found"""
+        if self.total_files_scanned == 0:
+            QMessageBox.information(self, "No Files Scanned", 
+                                    "No files were scanned. Please check your directory selection.")
+            return
+        
+        no_results_dialog = NoResultsDialog(self.current_search_string, 
+                                            self.current_directories, 
+                                            self.total_files_scanned)
+        no_results_dialog.new_scan_requested.connect(self.on_new_scan_requested)
+        no_results_dialog.exec_()
             
+        
     def show_results_window(self, results):
         """Show the results window with scan results"""
         if self.results_window is None:
@@ -118,6 +130,7 @@ class XMLScannerMainWindow(QMainWindow):
         if self.results_window:
             self.results_window.hide()
             
+        
         # Show setup window
         self.show_setup_window()
         

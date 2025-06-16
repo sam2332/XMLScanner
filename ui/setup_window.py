@@ -8,7 +8,8 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                             QTextEdit, QMessageBox)
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QFont
-
+from libs.Settings import Settings
+settings = Settings()
 class SetupWindow(QWidget):
     """Window for configuring scan parameters"""
     scan_requested = pyqtSignal(str, str)  # base_dir, search_string
@@ -36,7 +37,10 @@ class SetupWindow(QWidget):
         dir_input_layout = QHBoxLayout()
         self.dir_label = QLabel("Base Directories (separate multiple paths with ;):")
         self.dir_input = QLineEdit()
-        self.dir_input.setText(r"c:\Program Files (x86)\Steam\steamapps\common\RimWorld\Data\Core\Defs;C:\Program Files (x86)\Steam\steamapps\workshop\content\294100")
+        default_paths = r"c:\Program Files (x86)\Steam\steamapps\common\RimWorld\Data\Core\Defs;C:\Program Files (x86)\Steam\steamapps\workshop\content\294100"
+        if settings.get('base_directory'):
+            default_paths = settings.get('base_directory')
+        self.dir_input.setText(default_paths)
         self.dir_input.setMinimumHeight(30)
         
         self.dir_button = QPushButton("Browse...")
@@ -68,6 +72,10 @@ class SetupWindow(QWidget):
         self.search_label = QLabel("Search String:")
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Enter string to search for...")
+        if settings.get('search_string'):
+            self.search_input.setText(settings.get('search_string'))
+        else:
+            self.search_input.setText("Pawn;Building_WorkTable;Steel;ComponentIndustrial")
         self.search_input.setMinimumHeight(30)
         self.search_input.returnPressed.connect(self.start_scan)  # Allow Enter key to start scan
         
@@ -144,6 +152,11 @@ class SetupWindow(QWidget):
                             f"The following directories do not exist:\n" + "\n".join(invalid_dirs))
             return
             
+        # Save settings
+        settings.set('base_directory', base_dir)
+        settings.set('search_string', search_string)
+        settings.set('last_scan_date', '')
+        settings.set('scan_results', [])
         # All validation passed, emit scan request
         self.scan_requested.emit(base_dir, search_string)
         

@@ -1,0 +1,11 @@
+{
+    "servers": {
+        "Web Search": {
+            "type": "stdio",
+            "command": "node",
+            "args": [
+                "D:\\mcp\\web-search-main\\build\\index.js"
+            ]
+        }
+    }
+}

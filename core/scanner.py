@@ -99,18 +99,23 @@ class ScanWorker(QThread):
         total_scanned = 0
         had_error = False
         start_time = time.time()
+        matched_files = []
         for file_path in index_decompiled_files(decomp_dir):
             total_scanned += 1
             try:
                 with open(file_path, 'rb') as f:
                     content = f.read().lower()
-                    occurrences_total += sum(content.count(term) for term in search_terms)
+                    occ = sum(content.count(term) for term in search_terms)
+                    if occ > 0:
+                        occurrences_total += occ
+                        matched_files.append((dll_path, file_path, occ))
             except Exception as e:
                 self.status_updated.emit(f"Error reading decompiled file: {e}")
                 had_error = True
         if not had_error:
             self.status_updated.emit(f"Scanned {total_scanned} files, found {occurrences_total} occurrences. Took: {time.time() - start_time:.2f} seconds")
-        return occurrences_total if occurrences_total > 0 else None
+        # Return all matched files for this DLL
+        return matched_files if matched_files else None
     def run(self):
         all_files = []
         found_files = []
@@ -142,13 +147,18 @@ class ScanWorker(QThread):
         if self.scan_xmls:
             for filename in xml_files:
                 occurrences = 0
+                matched_terms = []
                 try:
                     self.status_updated.emit(f"Scanning: {shorten_path(filename)}")
                     with open(filename, 'rb') as file:
                         content = file.read().lower()
-                        occurrences = sum(content.count(term) for term in self.search_terms)
+                        for idx, term in enumerate(self.search_terms):
+                            count = content.count(term)
+                            if count > 0:
+                                occurrences += count
+                                matched_terms.append(term.decode('utf-8'))
                     if occurrences > 0:
-                        found_files.append((filename, occurrences))
+                        found_files.append((filename, occurrences, matched_terms))
                         self.file_found.emit(filename, occurrences)
                 except Exception as e:
                     self.status_updated.emit(f"Error processing {filename}: {e}")
@@ -158,19 +168,35 @@ class ScanWorker(QThread):
         # Process DLL files in a thread pool
         if self.scan_dlls:
             max_workers = max(1, int(get_cpu_count() // 2))
+            def dll_worker(filename):
+                result = self.process_dll_file(filename, self.search_terms)
+                # result is a list of (dll_path, decomp_file, occ)
+                # We need to also collect matched terms for each decomp_file
+                matched_results = []
+                if result:
+                    for dll_path, decomp_file, occ in result:
+                        matched_terms = []
+                        try:
+                            with open(decomp_file, 'rb') as f:
+                                content = f.read().lower()
+                                for term in self.search_terms:
+                                    if content.count(term) > 0:
+                                        matched_terms.append(term.decode('utf-8'))
+                        except Exception:
+                            pass
+                        matched_results.append((dll_path, decomp_file, occ, matched_terms))
+                return matched_results
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-                future_to_file = {executor.submit(self.process_dll_file, filename, self.search_terms): filename for filename in dll_files}
-                # This loop will not finish until all DLLs are processed
+                future_to_file = {executor.submit(dll_worker, filename): filename for filename in dll_files}
                 for future in concurrent.futures.as_completed(future_to_file):
                     filename = future_to_file[future]
-                    occurrences = 0
                     try:
                         self.status_updated.emit(f"Scanning: {shorten_path(filename)}")
                         result = future.result()
-                        occurrences = result if result else 0
-                        if occurrences > 0:
-                            found_files.append((filename, occurrences))
-                            self.file_found.emit(filename, occurrences)
+                        if result:
+                            for dll_path, decomp_file, occ, matched_terms in result:
+                                found_files.append((dll_path, decomp_file, occ, matched_terms))
+                                self.file_found.emit(decomp_file, occ)
                     except Exception as e:
                         self.status_updated.emit(f"Error processing {filename}: {e}")
                     processed += 1

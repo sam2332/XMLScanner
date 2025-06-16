@@ -1,6 +1,7 @@
 {
+    "default_base_directory": "c:\\Program Files (x86)\\Steam\\steamapps\\common\\RimWorld\\Data\\Core\\Defs;C:\\Program Files (x86)\\Steam\\steamapps\\workshop\\content\\294100;C:\\Program Files (x86)\\Steam\\steamapps\\common\\RimWorld\\Mods;%USERPROFILE%\\AppData\\LocalLow\\Ludeon Studios\\",
     "base_directory": "c:\\Program Files (x86)\\Steam\\steamapps\\common\\RimWorld\\Data\\Core\\Defs;C:\\Program Files (x86)\\Steam\\steamapps\\workshop\\content\\294100;C:\\Program Files (x86)\\Steam\\steamapps\\common\\RimWorld\\Mods;%USERPROFILE%\\AppData\\LocalLow\\Ludeon Studios\\",
-    "search_string": "Process.Start; System.Diagnostics.Process; System.Reflection.Emit; System.Reflection.Assembly.Load; System.Reflection.MethodInfo.Invoke; DllImport; P/Invoke; Marshal; Unsafe; AppDomain.CreateDomain; File.WriteAllBytes; File.WriteAllText; File.Delete; Directory.Delete; WebClient.DownloadFile; HttpClient; WebRequest; Socket; TcpClient; UdpClient; RegistryKey; Microsoft.Win32.Registry",
+    "search_string": "WebClient.DownloadFile; HttpClient; WebRequest; TcpClient; UdpClient; Microsoft.Win32.Registry",
     "last_scan_date": "",
     "scan_results": [],
     "scan_dlls": true,

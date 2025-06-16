@@ -6,10 +6,12 @@ import os
 from datetime import datetime
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                             QLabel, QTableWidget, QTableWidgetItem, QHeaderView,
-                            QMessageBox, QFileDialog, QGroupBox, QLineEdit)
+                            QMessageBox, QFileDialog, QGroupBox, QLineEdit, QDialog, QDialogButtonBox, QRadioButton)
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
 from libs.util import shorten_path
+from ui.dll_dialogs import OpenDllDialog, OpenDllFolderDialog
+
 class ResultsWindow(QWidget):
     """Window displaying scan results in a table format"""
     new_scan_requested = pyqtSignal()
@@ -62,19 +64,14 @@ class ResultsWindow(QWidget):
         # Results table
         self.results_table = QTableWidget()
         self.results_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.results_table.setColumnCount(5)
+        self.results_table.setColumnCount(6)
         self.results_table.setHorizontalHeaderLabels([
-            "File Path", "Filename", "Directory", "Last Modified", "Occurrences"
+            "File Path", "Filename", "Directory", "Last Modified", "Occurrences", "Matched Terms"
         ])
-        
-        # Set column widths
+        # Make all columns user-resizeable
         header = self.results_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)  # File Path
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Filename
-        header.setSectionResizeMode(2, QHeaderView.Interactive)  # Directory
-        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Last Modified
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Occurrences
-        
+        for i in range(self.results_table.columnCount()):
+            header.setSectionResizeMode(i, QHeaderView.Interactive)
         # Enable sorting
         self.results_table.setSortingEnabled(True)
         
@@ -148,33 +145,68 @@ class ResultsWindow(QWidget):
             
     def populate_table(self, results):
         """Populate the table with results"""
+        # Determine if any DLL results (tuple of 3 or 4)
+        has_dll = any(isinstance(r, tuple) and (len(r) == 3 or len(r) == 4) for r in results)
+        if has_dll:
+            self.results_table.setColumnCount(6)
+            self.results_table.setHorizontalHeaderLabels([
+                "DLL Path", "Decompiled File", "Directory", "Last Modified", "Occurrences", "Matched Terms"
+            ])
+        else:
+            self.results_table.setColumnCount(6)
+            self.results_table.setHorizontalHeaderLabels([
+                "File Path", "Filename", "Directory", "Last Modified", "Occurrences", "Matched Terms"
+            ])
         self.results_table.setRowCount(len(results))
-        for row, (filepath, occurrence_count) in enumerate(results):
-            # Shortened file path for display
-            short_path = shorten_path(filepath)
-            item = QTableWidgetItem(short_path)
-            item.setData(Qt.UserRole, filepath)  # Store full path
-            self.results_table.setItem(row, 0, item)
-            # Filename
-            filename = os.path.basename(filepath)
-            self.results_table.setItem(row, 1, QTableWidgetItem(filename))
-            # Directory
-            directory = os.path.dirname(filepath)
-            self.results_table.setItem(row, 2, QTableWidgetItem(directory))
-            # Last modified
-            try:
-                mtime = os.path.getmtime(filepath)
-                modified_time = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
-            except:
-                modified_time = "Unknown"
-            self.results_table.setItem(row, 3, QTableWidgetItem(modified_time))
-            # Occurrences
-            occurrence_item = QTableWidgetItem()
-            occurrence_item.setData(Qt.DisplayRole, occurrence_count)  # For proper numeric sorting
-            self.results_table.setItem(row, 4, occurrence_item)
-        # Sort by filename by default
+        for row, result in enumerate(results):
+            if has_dll and isinstance(result, tuple) and (len(result) == 3 or len(result) == 4):
+                # DLL: (dll_path, decomp_file, occ, matched_terms) or (dll_path, decomp_file, occ)
+                if len(result) == 4:
+                    dll_path, decomp_file, occurrence_count, matched_terms = result
+                else:
+                    dll_path, decomp_file, occurrence_count = result
+                    matched_terms = []
+                self.results_table.setItem(row, 0, QTableWidgetItem(shorten_path(dll_path)))
+                decomp_item = QTableWidgetItem(shorten_path(decomp_file))
+                decomp_item.setData(Qt.UserRole, (dll_path, decomp_file))
+                self.results_table.setItem(row, 1, decomp_item)
+                self.results_table.setItem(row, 2, QTableWidgetItem(os.path.dirname(decomp_file)))
+                try:
+                    mtime = os.path.getmtime(decomp_file)
+                    modified_time = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
+                except:
+                    modified_time = "Unknown"
+                self.results_table.setItem(row, 3, QTableWidgetItem(modified_time))
+                occurrence_item = QTableWidgetItem()
+                occurrence_item.setData(Qt.DisplayRole, occurrence_count)
+                self.results_table.setItem(row, 4, occurrence_item)
+                self.results_table.setItem(row, 5, QTableWidgetItem(", ".join(matched_terms)))
+            else:
+                # XML: (filepath, occ, matched_terms) or (filepath, occ)
+                if len(result) == 3:
+                    filepath, occurrence_count, matched_terms = result
+                else:
+                    filepath, occurrence_count = result
+                    matched_terms = []
+                item = QTableWidgetItem(shorten_path(filepath))
+                item.setData(Qt.UserRole, filepath)
+                self.results_table.setItem(row, 0, item)
+                filename = os.path.basename(filepath)
+                self.results_table.setItem(row, 1, QTableWidgetItem(filename))
+                self.results_table.setItem(row, 2, QTableWidgetItem(os.path.dirname(filepath)))
+                try:
+                    mtime = os.path.getmtime(filepath)
+                    modified_time = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
+                except:
+                    modified_time = "Unknown"
+                self.results_table.setItem(row, 3, QTableWidgetItem(modified_time))
+                occurrence_item = QTableWidgetItem()
+                occurrence_item.setData(Qt.DisplayRole, occurrence_count)
+                self.results_table.setItem(row, 4, occurrence_item)
+                self.results_table.setItem(row, 5, QTableWidgetItem(", ".join(matched_terms)))
         self.results_table.sortItems(1)
-        
+        self.results_table.resizeColumnsToContents()
+
     def filter_results(self):
         """Filter results based on filename filter"""
         filter_text = self.filter_input.text().lower()
@@ -202,29 +234,71 @@ class ResultsWindow(QWidget):
         self.copy_path_button.setEnabled(has_selection)
         
     def open_selected_file(self):
-        """Open the selected file in its default application"""
+        """Open the selected file in its default application (for DLLs, open the decompiled file)"""
         current_row = self.results_table.currentRow()
         if current_row >= 0:
-            item = self.results_table.item(current_row, 0)
-            filepath = item.data(Qt.UserRole) if item else None
-            if filepath:
-                try:
-                    os.startfile(filepath)
-                except Exception as e:
-                    QMessageBox.critical(self, "Error", f"Could not open file: {str(e)}")
+            has_dll = self.results_table.horizontalHeaderItem(0).text().lower().startswith("dll")
+            if has_dll:
+                item = self.results_table.item(current_row, 1)
+                data = item.data(Qt.UserRole) if item else None
+                if data and isinstance(data, tuple) and len(data) == 2:
+                    dll_path, decomp_file = data
+                    dialog = OpenDllDialog(self)
+                    if dialog.exec_() == QDialog.Accepted:
+                        choice = dialog.get_choice()
+                        if choice == 'ilspy':
+                            try:
+                                import subprocess
+                                # Assuming ILSpy is installed and available in PATH
+                                subprocess.run(['ilspy', dll_path], check=True)
+                            except Exception as e:
+                                QMessageBox.critical(self, "Error", f"Could not open DLL in ILSpy: {str(e)}")
+                        else:
+                            try:
+                                os.startfile(decomp_file)
+                            except Exception as e:
+                                QMessageBox.critical(self, "Error", f"Could not open file: {str(e)}")
+                else:
+                    filepath = None
+            else:
+                item = self.results_table.item(current_row, 0)
+                filepath = item.data(Qt.UserRole) if item else None
+                if filepath:
+                    try:
+                        os.startfile(filepath)
+                    except Exception as e:
+                        QMessageBox.critical(self, "Error", f"Could not open file: {str(e)}")
                 
     def open_selected_directory(self):
-        """Open the directory containing the selected file"""
+        """Open the directory containing the selected file or DLL/decompiled file"""
         current_row = self.results_table.currentRow()
         if current_row >= 0:
-            item = self.results_table.item(current_row, 0)
-            filepath = item.data(Qt.UserRole) if item else None
-            if filepath:
-                directory = os.path.dirname(filepath)
-                try:
-                    os.startfile(directory)
-                except Exception as e:
-                    QMessageBox.critical(self, "Error", f"Could not open directory: {str(e)}")
+            has_dll = self.results_table.horizontalHeaderItem(0).text().lower().startswith("dll")
+            if has_dll:
+                item = self.results_table.item(current_row, 1)
+                data = item.data(Qt.UserRole) if item else None
+                if data and isinstance(data, tuple) and len(data) == 2:
+                    dll_path, decomp_file = data
+                    dialog = OpenDllFolderDialog(self)
+                    if dialog.exec_() == QDialog.Accepted:
+                        choice = dialog.get_choice()
+                        if choice == 'dll':
+                            directory = os.path.dirname(dll_path)
+                        else:
+                            directory = os.path.dirname(decomp_file)
+                        try:
+                            os.startfile(directory)
+                        except Exception as e:
+                            QMessageBox.critical(self, "Error", f"Could not open directory: {str(e)}")
+            else:
+                item = self.results_table.item(current_row, 0)
+                filepath = item.data(Qt.UserRole) if item else None
+                if filepath:
+                    directory = os.path.dirname(filepath)
+                    try:
+                        os.startfile(directory)
+                    except Exception as e:
+                        QMessageBox.critical(self, "Error", f"Could not open directory: {str(e)}")
                 
     def copy_selected_path(self):
         """Copy the selected file path to clipboard"""
@@ -284,4 +358,4 @@ class ResultsWindow(QWidget):
     def request_new_scan(self):
         """Request a new scan"""
         self.new_scan_requested.emit()
-        
+

@@ -165,15 +165,17 @@ class ScanWorker(QThread):
                 matched_terms = []
                 try:
                     self.status_updated.emit(f"Scanning: {shorten_path(filename)}")
-                    with open(filename, 'rb') as file:
+                    with open(filename, 'r', encoding='utf-8', errors='ignore') as file:
                         content = file.read().lower()
                         for idx, term in enumerate(self.search_terms):
-                            count = content.count(term)
+                            term_str = term.decode('utf-8')
+                            count = content.count(term_str)
                             if count > 0:
                                 occurrences += count
-                                matched_terms.append(term.decode('utf-8'))
+                                matched_terms.append(term_str)
                     if occurrences > 0:
-                        found_files.append((filename, occurrences, matched_terms))
+                        # Always use 4-tuple for XML: (filepath, filepath, occurrences, matched_terms)
+                        found_files.append((filename, filename, occurrences, matched_terms))
                         self.file_found.emit(filename, occurrences, matched_terms)
                 except Exception as e:
                     self.status_updated.emit(f"Error processing {filename}: {e}")
@@ -185,18 +187,17 @@ class ScanWorker(QThread):
             max_workers = max(1, int(get_cpu_count() // 2))
             def dll_worker(filename):
                 result = self.process_dll_file(filename, self.search_terms)
-                # result is a list of (dll_path, decomp_file, occ)
-                # We need to also collect matched terms for each decomp_file
                 matched_results = []
                 if result:
                     for dll_path, decomp_file, occ in result:
                         matched_terms = []
                         try:
-                            with open(decomp_file, 'rb') as f:
+                            with open(decomp_file, 'r', encoding='utf-8', errors='ignore') as f:
                                 content = f.read().lower()
                                 for term in self.search_terms:
-                                    if content.count(term) > 0:
-                                        matched_terms.append(term.decode('utf-8'))
+                                    term_str = term.decode('utf-8')
+                                    if content.count(term_str) > 0:
+                                        matched_terms.append(term_str)
                         except Exception:
                             pass
                         matched_results.append((dll_path, decomp_file, occ, matched_terms))

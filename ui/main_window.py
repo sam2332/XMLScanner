@@ -7,7 +7,8 @@ from PyQt5.QtCore import pyqtSignal
 
 from .setup_window import SetupWindow
 from .scan_progress_window import ScanProgressWindow
-from .results_window import ResultsWindow
+from .results_manager import ResultsManager
+from .results_windows import XMLResultsWindow, DLLResultsWindow
 from .no_results_dialog import NoResultsDialog
 import sys
 import os
@@ -21,7 +22,7 @@ class XMLScannerMainWindow(QMainWindow):
         super().__init__()
         self.setup_window = None
         self.progress_window = None
-        self.results_window = None
+        self.results_manager = ResultsManager(XMLResultsWindow, DLLResultsWindow)
         self.current_search_string = ""
         self.current_directories = []
         self.total_files_scanned = 0
@@ -91,13 +92,10 @@ class XMLScannerMainWindow(QMainWindow):
         
     def on_scan_finished(self, results):
         """Handle scan completion"""
-        # Don't automatically hide the progress window - let user close it manually
-        # if self.progress_window:
-        #     self.progress_window.hide()
-            
         if results:
-            # Show results window
-            self.show_results_window(results)
+            xml_results = [r for r in results if len(r) == 3 or (len(r) == 4 and r[0] == r[1])]
+            dll_results = [r for r in results if len(r) == 4 and r[0] != r[1]]
+            self.results_manager.show_results(xml_results, dll_results, self.current_search_string)
         else:
             self.show_no_results_dialog()
     def show_no_results_dialog(self):
@@ -113,17 +111,6 @@ class XMLScannerMainWindow(QMainWindow):
         no_results_dialog.new_scan_requested.connect(self.on_new_scan_requested)
         no_results_dialog.exec_()
             
-        
-    def show_results_window(self, results):
-        """Show the results window with scan results"""
-        if self.results_window is None:
-            self.results_window = ResultsWindow()
-            self.results_window.new_scan_requested.connect(self.on_new_scan_requested)
-            
-        self.results_window.display_results(results, self.current_search_string)
-        self.results_window.show()
-        self.results_window.raise_()
-        self.results_window.activateWindow()
         
     def on_new_scan_requested(self):
         """Handle request for new scan from results window"""
@@ -143,7 +130,9 @@ class XMLScannerMainWindow(QMainWindow):
             self.setup_window.close()
         if self.progress_window:
             self.progress_window.close()
-        if self.results_window:
-            self.results_window.close()
+        if self.results_manager.xml_results_window:
+            self.results_manager.xml_results_window.close()
+        if self.results_manager.dll_results_window:
+            self.results_manager.dll_results_window.close()
             
         event.accept()

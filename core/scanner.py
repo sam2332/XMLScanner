@@ -71,7 +71,7 @@ class ScanWorker(QThread):
     def process_dll_file(self, dll_path, search_terms):
         # Whitelist check
         dll_name = os.path.basename(dll_path).lower()
-        if dll_name in self.dll_whitelist:
+        if any(whitelisted.lower() == dll_name.lower() for whitelisted in self.dll_whitelist):
             self.status_updated.emit(f"Skipping whitelisted DLL: {dll_name}")
             return None
         # Compute SHA-1 hash of the DLL file

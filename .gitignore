@@ -1,1 +1,4 @@
 decomp_cache/*
+core/__pycache__/*
+libs/__pycache__/*
+ui/__pycache__/*

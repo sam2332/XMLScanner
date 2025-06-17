@@ -64,9 +64,9 @@ class ResultsWindow(QWidget):
         # Results table
         self.results_table = QTableWidget()
         self.results_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.results_table.setColumnCount(6)
+        self.results_table.setColumnCount(7)
         self.results_table.setHorizontalHeaderLabels([
-            "File Path", "Filename", "Directory", "Last Modified", "Occurrences", "Matched Terms"
+            "File Path", "Filename", "Directory", "Last Modified", "Occurrences", "Matched Terms", "Matched Line"
         ])
         # Make all columns user-resizeable
         header = self.results_table.horizontalHeader()
@@ -145,27 +145,27 @@ class ResultsWindow(QWidget):
             
     def populate_table(self, results):
         """Populate the table with results"""
-        # Determine if any DLL results (tuple of 3 or 4)
-        has_dll = any(isinstance(r, tuple) and (len(r) == 3 or len(r) == 4) for r in results)
+        # Determine if any DLL results (tuple of 4 or 5)
+        has_dll = any(isinstance(r, tuple) and (len(r) == 4 or len(r) == 5) for r in results)
         if has_dll:
-            self.results_table.setColumnCount(6)
+            self.results_table.setColumnCount(7)
             self.results_table.setHorizontalHeaderLabels([
-                "DLL Path", "Decompiled File", "Directory", "Last Modified", "Occurrences", "Matched Terms"
+                "DLL Path", "Decompiled File", "Directory", "Last Modified", "Occurrences", "Matched Terms", "Matched Line"
             ])
         else:
-            self.results_table.setColumnCount(6)
+            self.results_table.setColumnCount(7)
             self.results_table.setHorizontalHeaderLabels([
-                "File Path", "Filename", "Directory", "Last Modified", "Occurrences", "Matched Terms"
+                "File Path", "Filename", "Directory", "Last Modified", "Occurrences", "Matched Terms", "Matched Line"
             ])
         self.results_table.setRowCount(len(results))
         for row, result in enumerate(results):
-            if has_dll and isinstance(result, tuple) and (len(result) == 3 or len(result) == 4):
-                # DLL: (dll_path, decomp_file, occ, matched_terms) or (dll_path, decomp_file, occ)
-                if len(result) == 4:
-                    dll_path, decomp_file, occurrence_count, matched_terms = result
+            if has_dll and isinstance(result, tuple) and (len(result) == 4 or len(result) == 5):
+                # DLL: (dll_path, decomp_file, occ, matched_terms, matched_line) or (dll_path, decomp_file, occ, matched_terms)
+                if len(result) == 5:
+                    dll_path, decomp_file, occurrence_count, matched_terms, matched_line = result
                 else:
-                    dll_path, decomp_file, occurrence_count = result
-                    matched_terms = []
+                    dll_path, decomp_file, occurrence_count, matched_terms = result
+                    matched_line = ''
                 self.results_table.setItem(row, 0, QTableWidgetItem(shorten_path(dll_path)))
                 decomp_item = QTableWidgetItem(shorten_path(decomp_file))
                 decomp_item.setData(Qt.UserRole, (dll_path, decomp_file))
@@ -183,13 +183,18 @@ class ResultsWindow(QWidget):
                 matched_terms_item = QTableWidgetItem(", ".join(matched_terms))
                 matched_terms_item.setData(Qt.UserRole, len(matched_terms))
                 self.results_table.setItem(row, 5, matched_terms_item)
+                self.results_table.setItem(row, 6, QTableWidgetItem(matched_line or ''))
             else:
-                # XML: (filepath, occ, matched_terms) or (filepath, occ)
-                if len(result) == 3:
+                # XML: (filepath, filepath, occ, matched_terms, matched_line) or (filepath, occ, matched_terms)
+                if len(result) == 5:
+                    filepath, _, occurrence_count, matched_terms, matched_line = result
+                elif len(result) == 3:
                     filepath, occurrence_count, matched_terms = result
+                    matched_line = ''
                 else:
                     filepath, occurrence_count = result
                     matched_terms = []
+                    matched_line = ''
                 item = QTableWidgetItem(shorten_path(filepath))
                 item.setData(Qt.UserRole, filepath)
                 self.results_table.setItem(row, 0, item)
@@ -208,6 +213,7 @@ class ResultsWindow(QWidget):
                 matched_terms_item = QTableWidgetItem(", ".join(matched_terms))
                 matched_terms_item.setData(Qt.UserRole, len(matched_terms))
                 self.results_table.setItem(row, 5, matched_terms_item)
+                self.results_table.setItem(row, 6, QTableWidgetItem(matched_line or ''))
         # Sort by occurrences (column 4) in descending order so items with more matches are at the top
         self.results_table.sortItems(4, Qt.DescendingOrder)
         self.results_table.resizeColumnsToContents()
@@ -354,25 +360,24 @@ class ResultsWindow(QWidget):
         if filename:
             try:
                 with open(filename, 'w', newline='', encoding='utf-8') as f:
-                    f.write("File Path,Filename,Directory,Last Modified,Occurrences\n")
+                    f.write("File Path,Filename,Directory,Last Modified,Occurrences,Matched Line\n")
                     for result in self.scan_results:
                         # Handle DLL and XML result formats
-                        if len(result) == 4:
+                        if len(result) == 5:
+                            # DLL or XML: (..., ..., occurrence_count, matched_terms, matched_line)
+                            filepath, _, occurrence_count, _, matched_line = result
+                        elif len(result) == 4:
                             # DLL: (dll_path, decomp_file, occurrence_count, matched_terms)
-                            filepath, decomp_file, occurrence_count, _ = result
+                            filepath, _, occurrence_count, _ = result
+                            matched_line = ''
                         elif len(result) == 3:
-                            # XML: (filepath, occurrence_count, matched_terms) or DLL: (dll_path, decomp_file, occurrence_count)
-                            if isinstance(result[1], str):
-                                # DLL: (dll_path, decomp_file, occurrence_count)
-                                filepath, decomp_file, occurrence_count = result
-                            else:
-                                # XML: (filepath, occurrence_count, matched_terms)
-                                filepath, occurrence_count, _ = result
-                                decomp_file = None
+                            # XML: (filepath, occurrence_count, matched_terms)
+                            filepath, occurrence_count, _ = result
+                            matched_line = ''
                         else:
                             # XML: (filepath, occurrence_count)
                             filepath, occurrence_count = result
-                            decomp_file = None
+                            matched_line = ''
                         filename_only = os.path.basename(filepath)
                         directory = os.path.dirname(filepath)
                         try:
@@ -383,7 +388,8 @@ class ResultsWindow(QWidget):
                         filepath_escaped = filepath.replace('"', '""')
                         filename_escaped = filename_only.replace('"', '""')
                         directory_escaped = directory.replace('"', '""')
-                        f.write(f'"{filepath_escaped}","{filename_escaped}","{directory_escaped}","{modified_time}",{occurrence_count}\n')
+                        matched_line_escaped = (matched_line or '').replace('"', '""')
+                        f.write(f'"{filepath_escaped}","{filename_escaped}","{directory_escaped}","{modified_time}",{occurrence_count},"{matched_line_escaped}"\n')
                 QMessageBox.information(self, "Export Complete", f"Results exported to:\n{filename}")
             except Exception as e:
                 QMessageBox.critical(self, "Export Error", f"Could not export results: {str(e)}")

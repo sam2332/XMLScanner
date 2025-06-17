@@ -50,6 +50,7 @@ class SetupWindow(QWidget):
         dir_input_layout.addWidget(self.dir_input)
         dir_input_layout.addWidget(self.dir_button)
         
+        
         # Add directory help text
         dir_help = QTextEdit()
         dir_help.setMaximumHeight(80)

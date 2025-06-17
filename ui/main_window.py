@@ -93,8 +93,10 @@ class XMLScannerMainWindow(QMainWindow):
     def on_scan_finished(self, results):
         """Handle scan completion"""
         if results:
-            xml_results = [r for r in results if len(r) == 3 or (len(r) == 4 and r[0] == r[1])]
-            dll_results = [r for r in results if len(r) == 4 and r[0] != r[1]]
+            # Updated logic for 5-tuple (filepath, filepath, occurrences, matched_terms, matched_line) for XML
+            # and (dll_path, decomp_file, occ, matched_terms, matched_line) for DLL
+            xml_results = [r for r in results if len(r) == 5 and r[0] == r[1]]
+            dll_results = [r for r in results if len(r) == 5 and r[0] != r[1]]
             self.results_manager.show_results(xml_results, dll_results, self.current_search_string)
         else:
             self.show_no_results_dialog()

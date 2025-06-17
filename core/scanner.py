@@ -116,9 +116,21 @@ class ScanWorker(QThread):
                 with open(file_path, 'rb') as f:
                     content = f.read().lower()
                     occ = sum(content.count(term) for term in search_terms)
+                    matched_line = None
                     if occ > 0:
+                        # Find the first line containing any search term
+                        try:
+                            lines = content.split(b'\n')
+                            for line in lines:
+                                if any(term in line for term in search_terms):
+                                    matched_line = line.decode('utf-8', errors='ignore').strip()
+                                    if len(matched_line) > 50:
+                                        matched_line = matched_line[:50] + '...'
+                                    break
+                        except Exception:
+                            matched_line = ''
                         occurrences_total += occ
-                        matched_files.append((dll_path, file_path, occ))
+                        matched_files.append((dll_path, file_path, occ, matched_line))
             except Exception as e:
                 self.status_updated.emit(f"Error reading decompiled file: {e}")
                 had_error = True
@@ -163,19 +175,29 @@ class ScanWorker(QThread):
             for filename in xml_files:
                 occurrences = 0
                 matched_terms = []
+                matched_line = None
                 try:
                     self.status_updated.emit(f"Scanning: {shorten_path(filename)}")
                     with open(filename, 'r', encoding='utf-8', errors='ignore') as file:
-                        content = file.read().lower()
+                        lines = file.readlines()
+                        content = ''.join(lines).lower()
                         for idx, term in enumerate(self.search_terms):
                             term_str = term.decode('utf-8')
                             count = content.count(term_str)
                             if count > 0:
                                 occurrences += count
                                 matched_terms.append(term_str)
+                        # Find the first line containing any search term
+                        for line in lines:
+                            lcline = line.lower()
+                            if any(term.decode('utf-8') in lcline for term in self.search_terms):
+                                matched_line = line.strip()
+                                if len(matched_line) > 50:
+                                    matched_line = matched_line[:50] + '...'
+                                break
                     if occurrences > 0:
-                        # Always use 4-tuple for XML: (filepath, filepath, occurrences, matched_terms)
-                        found_files.append((filename, filename, occurrences, matched_terms))
+                        # Always use 5-tuple for XML: (filepath, filepath, occurrences, matched_terms, matched_line)
+                        found_files.append((filename, filename, occurrences, matched_terms, matched_line))
                         self.file_found.emit(filename, occurrences, matched_terms)
                 except Exception as e:
                     self.status_updated.emit(f"Error processing {filename}: {e}")
@@ -189,7 +211,7 @@ class ScanWorker(QThread):
                 result = self.process_dll_file(filename, self.search_terms)
                 matched_results = []
                 if result:
-                    for dll_path, decomp_file, occ in result:
+                    for dll_path, decomp_file, occ, matched_line in result:
                         matched_terms = []
                         try:
                             with open(decomp_file, 'r', encoding='utf-8', errors='ignore') as f:
@@ -200,7 +222,7 @@ class ScanWorker(QThread):
                                         matched_terms.append(term_str)
                         except Exception:
                             pass
-                        matched_results.append((dll_path, decomp_file, occ, matched_terms))
+                        matched_results.append((dll_path, decomp_file, occ, matched_terms, matched_line))
                 return matched_results
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                 future_to_file = {executor.submit(dll_worker, filename): filename for filename in dll_files}
@@ -210,8 +232,8 @@ class ScanWorker(QThread):
                         self.status_updated.emit(f"Scanning: {shorten_path(filename)}")
                         result = future.result()
                         if result:
-                            for dll_path, decomp_file, occ, matched_terms in result:
-                                found_files.append((dll_path, decomp_file, occ, matched_terms))
+                            for dll_path, decomp_file, occ, matched_terms, matched_line in result:
+                                found_files.append((dll_path, decomp_file, occ, matched_terms, matched_line))
                                 self.file_found.emit(decomp_file, occ, matched_terms)
                     except Exception as e:
                         self.status_updated.emit(f"Error processing {filename}: {e}")
